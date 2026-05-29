@@ -17,42 +17,64 @@ export class AIError extends Error {
   }
 }
 
+// AI can run two ways:
+//  - 'proxy'  : calls our serverless function (/api/claude), key stays server-side.
+//               Enabled by setting VITE_AI_PROXY=1 (the recommended production setup).
+//  - 'direct' : calls Anthropic straight from the browser using VITE_ANTHROPIC_API_KEY.
+//               Handy for local dev; the key is exposed, so avoid in production.
+const PROXY_ENDPOINT = '/api/claude';
+
+export function aiMode() {
+  if (import.meta.env.VITE_ANTHROPIC_API_KEY) return 'direct';
+  if (import.meta.env.VITE_AI_PROXY) return 'proxy';
+  return 'off';
+}
+
 export function hasApiKey() {
-  return Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY);
+  return aiMode() !== 'off';
 }
 
 /**
- * Single helper that POSTs to the Messages API and returns concatenated text
- * blocks. systemPrompt is the system instruction; userContent is the user turn.
+ * Single helper that returns concatenated text blocks from the Messages API,
+ * via the serverless proxy or directly depending on configuration.
  */
 export async function callClaude(systemPrompt, userContent) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new AIError('No Anthropic API key configured (VITE_ANTHROPIC_API_KEY).', {
+  const mode = aiMode();
+  if (mode === 'off') {
+    throw new AIError('AI is not configured (set VITE_AI_PROXY or VITE_ANTHROPIC_API_KEY).', {
       kind: 'no_key',
     });
   }
 
   let res;
   try {
-    res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        // Allow calling the API directly from the browser.
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }],
-      }),
-    });
+    if (mode === 'direct') {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          // Allow calling the API directly from the browser.
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }],
+        }),
+      });
+    } else {
+      // Proxy: the server holds the key and builds the upstream request.
+      res = await fetch(PROXY_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ system: systemPrompt, userContent }),
+      });
+    }
   } catch (e) {
-    throw new AIError(`Network error reaching Anthropic API: ${e.message}`, {
+    throw new AIError(`Network error reaching the AI service: ${e.message}`, {
       kind: 'network',
     });
   }

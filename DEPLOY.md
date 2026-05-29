@@ -28,22 +28,33 @@ Vite setup from `vercel.json`.
   - Just open the **Preview URL** Vercel creates for the branch/PR to see it live
     immediately without merging.
 
-## AI features (optional, later)
+## Turning on the AI features (live, secure)
 
 The five AI features (notes→updates, check-in summary, follow-up, HVA scoring,
 MEDDPICC coach) need an Anthropic API key. The app runs fully **without** one
 (they show "AI offline" and use built-in fallbacks).
 
-To enable them you have two options:
+A **serverless proxy** is already built in (`api/claude.js`) so the key stays on
+the server and is never shipped to the browser. To enable live AI on Vercel:
 
-1. **Quick but exposes the key** — in Vercel → Settings → Environment Variables,
-   add `VITE_ANTHROPIC_API_KEY = sk-ant-...`. ⚠️ This is bundled into the
-   browser app, so anyone using the site can read the key. Only acceptable for a
-   private/internal URL.
-2. **Recommended — serverless proxy** (no exposed key). We add a Vercel
-   serverless function that holds the key server-side (`ANTHROPIC_API_KEY`) and
-   the app calls that instead of Anthropic directly. This is a small follow-up
-   change — ask and it'll be wired in.
+1. **Get an Anthropic API key** at https://console.anthropic.com (Settings → API
+   Keys). It looks like `sk-ant-...`.
+2. In **Vercel → your project → Settings → Environment Variables**, add **two**:
+   - `ANTHROPIC_API_KEY = sk-ant-...`  ← the real key, server-side only (no
+     `VITE_` prefix, so it never reaches the browser).
+   - `VITE_AI_PROXY = 1`  ← tells the app to route AI calls through the proxy.
+3. **Redeploy** (Deployments → ⋯ → Redeploy, or push a commit). The "AI offline"
+   badge disappears and the AI features call Claude live via `/api/claude`.
+
+That's the recommended setup — the key is never exposed.
+
+### Local development
+`npm run dev` (plain Vite) does **not** run the serverless function. For local
+AI you can either:
+- run `vercel dev` (serves `/api/claude` locally; set `ANTHROPIC_API_KEY` +
+  `VITE_AI_PROXY=1` in a local `.env`), or
+- set `VITE_ANTHROPIC_API_KEY=sk-ant-...` in `.env` to call Anthropic directly
+  from the browser (dev convenience only — never deploy with this).
 
 ## Custom domain (optional)
 
