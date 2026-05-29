@@ -15,38 +15,55 @@ body,
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
-  background: #f1f4f9;
-  color: #1a2b4a;
+  color: #1b2440;
   -webkit-font-smoothing: antialiased;
+  /* Premium light backdrop with faint cool colour wash. */
+  background-color: #f6f8fd;
+  background-image: radial-gradient(60rem 40rem at 12% -8%, rgba(124, 92, 255, 0.1), transparent 60%),
+    radial-gradient(50rem 35rem at 100% 0%, rgba(34, 211, 238, 0.1), transparent 55%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 @layer components {
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors;
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all;
   }
   .chip-on {
-    @apply border-navy-100 bg-white text-navy-800 hover:border-accent;
+    @apply border-navy-100 bg-white/70 text-navy-800 hover:border-accent/50 hover:shadow-sm;
   }
   .chip-active {
-    @apply border-accent bg-accent text-white;
+    @apply border-transparent bg-brand text-white shadow-sm;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-navy-800 text-white hover:bg-navy-700;
+    @apply btn bg-navy-800 text-white hover:bg-navy-900;
   }
   .btn-accent {
-    @apply btn bg-accent text-white hover:bg-accent-dark;
+    @apply btn bg-brand text-white shadow-sm hover:shadow-lift;
   }
   .btn-ghost {
-    @apply btn border border-navy-100 bg-white text-navy-800 hover:bg-navy-50;
+    @apply btn border border-navy-100 bg-white/70 text-navy-800 backdrop-blur hover:border-accent/40 hover:bg-white;
   }
   .card {
-    @apply rounded-lg border border-navy-100 bg-white shadow-sm;
+    @apply rounded-2xl border border-navy-100 bg-white shadow-soft;
+  }
+  .glass {
+    @apply border border-white/60 bg-white/70 backdrop-blur-xl;
   }
   .field {
-    @apply w-full rounded-md border border-navy-100 bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20;
+    @apply w-full rounded-xl border border-navy-100 bg-white px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-4 focus:ring-accent/15;
+  }
+  .text-gradient {
+    @apply bg-brand bg-clip-text text-transparent;
   }
 }
 
@@ -56,7 +73,8 @@ input[type='range'].pct {
   appearance: none;
   height: 6px;
   border-radius: 9999px;
-  background: #dce3ef;
+  background: linear-gradient(90deg, #7c5cff, #22d3ee);
+  opacity: 0.85;
 }
 input[type='range'].pct::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -64,16 +82,32 @@ input[type='range'].pct::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 9999px;
-  background: #e8833a;
+  background: #fff;
   cursor: pointer;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  border: 2px solid #6d5efc;
+  box-shadow: 0 1px 3px rgba(27, 36, 64, 0.25);
 }
 input[type='range'].pct::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border: 2px solid #fff;
+  border: 2px solid #6d5efc;
   border-radius: 9999px;
-  background: #e8833a;
+  background: #fff;
   cursor: pointer;
+}
+
+/* Subtle scrollbars to match the premium feel */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cdd5e8 transparent;
+}
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cdd5e8;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }

@@ -17,22 +17,22 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-shrink-0 items-center justify-between border-b border-navy-100 bg-navy-800 px-5 py-2.5 text-white">
+      <header className="glass sticky top-0 z-30 flex flex-shrink-0 items-center justify-between border-b px-5 py-2.5">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-accent font-bold">W</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand text-base font-extrabold text-white shadow-lift">W</div>
           <div>
-            <h1 className="text-sm font-semibold leading-tight">Account War Room</h1>
-            <p className="text-[11px] leading-tight text-white/60">Weekly operating rhythm</p>
+            <h1 className="font-display text-base font-extrabold leading-tight text-navy-800">Account War Room</h1>
+            <p className="text-[11px] leading-tight text-navy-700/60">Weekly operating rhythm</p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-1 rounded-lg bg-navy-900/40 p-1">
+        <nav className="flex items-center gap-1 rounded-full border border-navy-100 bg-white/60 p-1 backdrop-blur">
           {VIEWS.map((v) => (
             <button
               key={v.id}
               onClick={() => setView(v.id)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                view === v.id ? 'bg-white text-navy-800' : 'text-white/70 hover:text-white'
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                view === v.id ? 'bg-brand text-white shadow-sm' : 'text-navy-700/70 hover:text-navy-900'
               }`}
             >
               {v.label}
@@ -43,7 +43,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           {!hasApiKey() && (
             <span
-              className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-white/70"
+              className="rounded-full border border-navy-100 bg-white/70 px-2.5 py-1 text-[11px] text-navy-700/70"
               title="Set VITE_ANTHROPIC_API_KEY to enable AI features. The app works fully without it."
             >
               AI offline
@@ -53,7 +53,7 @@ export default function App() {
             onClick={() => {
               if (confirm('Reset all data back to the seeded demo set? This cannot be undone.')) resetData();
             }}
-            className="rounded-md px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 hover:text-white"
+            className="rounded-full px-2.5 py-1 text-[11px] text-navy-700/60 hover:bg-navy-50 hover:text-navy-800"
           >
             Reset demo data
           </button>

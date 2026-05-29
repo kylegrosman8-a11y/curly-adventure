@@ -112,9 +112,9 @@ export function buildRoadmapHTML({ account, workstreams, milestones, memberById 
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(account.name)} Roadmap</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: 'Inter', system-ui, Arial, sans-serif; margin: 0; color: #1a2b4a; background: #fff; }
+  body { font-family: 'Inter', system-ui, Arial, sans-serif; margin: 0; color: #1b2440; background: #fff; }
   .wrap { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px; color: #1a2b4a; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #1b2440; }
   .sub { color: #5b6b86; font-size: 12px; margin-bottom: 14px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 16px; }
   .lg { font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
@@ -124,9 +124,9 @@ export function buildRoadmapHTML({ account, workstreams, milestones, memberById 
   .tick { position: absolute; top: 0; height: 100%; border-left: 1px solid #dce3ef; padding-left: 4px; }
   .tick span { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #5b6b86; }
   .msrow { position: relative; height: 26px; margin-left: 280px; border-bottom: 1px dashed #dce3ef; background: #fffaf4; }
-  .ms { position: absolute; top: 2px; transform: translateX(-50%); color: #e8833a; font-size: 13px; white-space: nowrap; }
-  .ms span { font-size: 9px; color: #1a2b4a; margin-left: 2px; }
-  .today { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(232,131,58,.8); z-index: 5; }
+  .ms { position: absolute; top: 2px; transform: translateX(-50%); color: #6d5efc; font-size: 13px; white-space: nowrap; }
+  .ms span { font-size: 9px; color: #1b2440; margin-left: 2px; }
+  .today { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(109,94,252,.8); z-index: 5; }
   .phase { border-bottom: 1px solid #eef2f8; }
   .phead { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #243a63; background: #f7f9fc; padding: 4px 10px; }
   .row { display: grid; grid-template-columns: 280px 1fr 0; align-items: center; min-height: 30px; }
@@ -138,12 +138,12 @@ export function buildRoadmapHTML({ account, workstreams, milestones, memberById 
   .rmeta { display: none; }
   .panels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
   .panel { border: 1px solid #dce3ef; border-radius: 8px; padding: 12px 14px; }
-  .panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: #1a2b4a; margin: 0 0 8px; border-bottom: 2px solid #e8833a; padding-bottom: 6px; }
+  .panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: #1b2440; margin: 0 0 8px; border-bottom: 2px solid #6d5efc; padding-bottom: 6px; }
   .panel ul { margin: 0; padding-left: 16px; }
   .panel li { font-size: 12px; margin-bottom: 6px; line-height: 1.35; }
   .panel .empty { color: #9aa7bd; font-size: 12px; }
   @media print { .noprint { display: none; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  .btn { background: #1a2b4a; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+  .btn { background: #1b2440; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
 </style></head>
 <body><div class="wrap">
   <button class="btn noprint" onclick="window.print()" style="float:right">Print / Save PDF</button>
