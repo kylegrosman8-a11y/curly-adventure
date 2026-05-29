@@ -3,6 +3,8 @@ import { useStore, useLookups } from '../../store/store.jsx';
 import { StatusBadge, Avatar, FunctionTag } from '../shared/ui.jsx';
 import { MeddpiccScorecard } from '../shared/Meddpicc.jsx';
 import { isSales, coeTypeMeta } from '../../lib/functions.js';
+import { MEDDPICC_ELEMENTS, meddpiccGaps, MEDDPICC_STATES } from '../../lib/meddpicc.js';
+import { meddpiccCoach, hasApiKey, AIError } from '../../lib/claude.js';
 import { STATUS_ORDER, STATUSES, ACTION_STATUSES, formatValue } from '../../lib/status.js';
 import { shortDate, daysAgo, isOverdue, addDays, todayISO } from '../../lib/dates.js';
 
@@ -110,10 +112,12 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
         {/* MEDDPICC scorecard — sales streams only */}
         {isSales(ws) && (
           <div>
-            <MeddpiccScorecard meddpicc={ws.meddpicc} />
-            <p className="mt-1.5 text-[11px] text-navy-700/50">
-              Inline editing, check-in gap prompts and the AI coach land in the next phase.
-            </p>
+            <MeddpiccScorecard
+              meddpicc={ws.meddpicc}
+              onCycle={(key, state) => store.updateMeddpicc(ws.id, key, { state })}
+              onNote={(key, note) => store.updateMeddpicc(ws.id, key, { note })}
+            />
+            <MeddpiccCoachPanel ws={ws} notes={notes} onApplyFill={(key, state) => store.updateMeddpicc(ws.id, key, { state })} onAddAction={(text) => store.addActionItem({ workstreamId: ws.id, ownerId: ws.ownerId, text, dueDate: addDays(todayISO(), 7) })} />
           </div>
         )}
 
@@ -242,6 +246,113 @@ function Field({ label, children }) {
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">{label}</p>
       <div className="mt-0.5 text-navy-800">{children}</div>
+    </div>
+  );
+}
+
+const elementLabel = (key) => MEDDPICC_ELEMENTS.find((e) => e.key === key)?.label || key;
+
+// AI coach: auto-fill suggestions from notes + the top gaps to close this week
+// with drafted discovery questions. Falls back to local prompts when offline.
+function MeddpiccCoachPanel({ ws, notes, onApplyFill, onAddAction }) {
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+
+  async function run() {
+    setBusy(true);
+    setNote('');
+    const gaps = meddpiccGaps(ws.meddpicc).slice(0, 3);
+    const localFocus = gaps.map((g) => ({ key: g.key, question: g.prompt }));
+
+    if (!hasApiKey()) {
+      setResult({ fills: [], focus: localFocus });
+      setNote('AI offline — showing the standard discovery questions for your open gaps.');
+      setBusy(false);
+      return;
+    }
+    try {
+      const opp = {
+        title: ws.title,
+        account: ws.accountId,
+        status: ws.status,
+        value: ws.value,
+        meddpicc: ws.meddpicc,
+        notes: notes.map((n) => n.text),
+      };
+      const res = await meddpiccCoach(opp);
+      setResult({
+        fills: res.fills || [],
+        focus: res.focus?.length ? res.focus : localFocus,
+      });
+    } catch (e) {
+      setResult({ fills: [], focus: localFocus });
+      setNote(e instanceof AIError ? `AI unavailable — using standard questions. (${e.message})` : 'Using standard questions.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-md border border-navy-100 bg-navy-50/40 p-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">MEDDPICC coach</p>
+        <button className="btn-accent !px-2.5 !py-1 text-xs" onClick={run} disabled={busy}>
+          {busy ? 'Thinking…' : result ? 'Re-run' : 'Coach me'}
+        </button>
+      </div>
+      {note && <p className="mt-1.5 text-[11px] text-navy-700/60">{note}</p>}
+
+      {result && (
+        <div className="mt-2 space-y-3">
+          {result.fills.length > 0 && (
+            <div>
+              <p className="mb-1 text-[11px] font-semibold text-navy-700/70">Suggested from your notes</p>
+              <div className="space-y-1.5">
+                {result.fills.map((f, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded border border-navy-100 bg-white px-2 py-1.5 text-xs">
+                    <span
+                      className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[9px] font-bold text-white"
+                      style={{ background: MEDDPICC_STATES[f.state]?.color || '#94a3b8' }}
+                    >
+                      {elementLabel(f.key)[0]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-navy-800">
+                        {elementLabel(f.key)} → {MEDDPICC_STATES[f.state]?.label || f.state}
+                      </p>
+                      {f.why && <p className="text-navy-700/60">{f.why}</p>}
+                    </div>
+                    <button className="btn-ghost !px-2 !py-0.5 text-[11px]" onClick={() => onApplyFill(f.key, f.state)}>
+                      Apply
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.focus.length > 0 && (
+            <div>
+              <p className="mb-1 text-[11px] font-semibold text-navy-700/70">Close these gaps this week</p>
+              <div className="space-y-1.5">
+                {result.focus.map((q, i) => (
+                  <div key={i} className="rounded border border-navy-100 bg-white px-2 py-1.5 text-xs">
+                    <p className="font-medium text-navy-800">{elementLabel(q.key)}</p>
+                    <p className="text-navy-700/70">{q.question}</p>
+                    <button
+                      className="mt-1 text-[11px] font-semibold text-accent hover:underline"
+                      onClick={() => onAddAction(`[${elementLabel(q.key)}] ${q.question}`)}
+                    >
+                      ＋ Add as follow-up action
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

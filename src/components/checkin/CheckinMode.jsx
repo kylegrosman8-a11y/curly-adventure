@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, useLookups, initials } from '../../store/store.jsx';
 import { STATUS_ORDER, STATUSES } from '../../lib/status.js';
 import { Avatar, EmptyState } from '../shared/ui.jsx';
-import { shortDate, daysAgo } from '../../lib/dates.js';
+import { shortDate, daysAgo, addDays, todayISO } from '../../lib/dates.js';
+import { isSales } from '../../lib/functions.js';
+import { meddpiccGaps, scoreMeddpicc, meddpiccBand, MEDDPICC_STATES, MEDDPICC_STATE_ORDER } from '../../lib/meddpicc.js';
 import PasteNotesPanel from './PasteNotesPanel.jsx';
 import EndCheckinModal from './EndCheckinModal.jsx';
 
@@ -219,6 +221,20 @@ export default function CheckinMode() {
                 onPercent={(p) => setPercent(ws, p)}
                 onNoteChange={(t) => setNoteDrafts((d) => ({ ...d, [ws.id]: t }))}
                 onNoteSave={() => saveNote(ws)}
+                onMeddpicc={(key, patch) => {
+                  store.updateMeddpicc(ws.id, key, patch);
+                  markTouched(ws.id);
+                }}
+                onAddGapAction={(text) => {
+                  const a = store.addActionItem({
+                    workstreamId: ws.id,
+                    ownerId: ws.ownerId,
+                    text,
+                    dueDate: addDays(todayISO(), 7),
+                  });
+                  setSessionActionIds((prev) => [...prev, a.id]);
+                  markTouched(ws.id);
+                }}
               />
             ))}
 
@@ -240,7 +256,7 @@ export default function CheckinMode() {
   );
 }
 
-function CheckinRow({ ws, account, touched, noteDraft, onStatus, onPercent, onNoteChange, onNoteSave }) {
+function CheckinRow({ ws, account, touched, noteDraft, onStatus, onPercent, onNoteChange, onNoteSave, onMeddpicc, onAddGapAction }) {
   const stale = daysAgo(ws.lastTouched) > 10;
   return (
     <div className={`card p-4 transition-shadow ${touched ? 'ring-1 ring-accent/40' : ''}`}>
@@ -317,6 +333,57 @@ function CheckinRow({ ws, account, touched, noteDraft, onStatus, onPercent, onNo
           Save note
         </button>
       </div>
+
+      {/* MEDDPICC gap prompts — sales streams only */}
+      {isSales(ws) && <MeddpiccGapPrompts ws={ws} onMeddpicc={onMeddpicc} onAddGapAction={onAddGapAction} />}
+    </div>
+  );
+}
+
+// Surfaces a sales stream's open MEDDPICC gaps as in-check-in prompts, with a
+// quick R→A→G control and a one-click "add follow-up" from the question.
+function MeddpiccGapPrompts({ ws, onMeddpicc, onAddGapAction }) {
+  const gaps = meddpiccGaps(ws.meddpicc).slice(0, 3);
+  const { pct } = scoreMeddpicc(ws.meddpicc);
+  const band = meddpiccBand(pct);
+  const cycle = (state) => MEDDPICC_STATE_ORDER[(MEDDPICC_STATE_ORDER.indexOf(state) + 1) % 3];
+
+  return (
+    <div className="mt-3 rounded-md border border-navy-100 bg-navy-50/40 p-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">Qualification — close the gaps</p>
+        <span className="text-[11px] font-semibold" style={{ color: band.color }}>
+          {pct}% · {band.label}
+        </span>
+      </div>
+      {gaps.length === 0 ? (
+        <p className="text-xs text-navy-700/50">All MEDDPICC elements are green. 🎉</p>
+      ) : (
+        <div className="space-y-1.5">
+          {gaps.map((g) => (
+            <div key={g.key} className="flex items-start gap-2 rounded border border-navy-100 bg-white px-2 py-1.5 text-xs">
+              <button
+                onClick={() => onMeddpicc(g.key, { state: cycle(g.state) })}
+                className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded font-bold text-white hover:ring-2 hover:ring-offset-1"
+                style={{ background: MEDDPICC_STATES[g.state].color }}
+                title="Click to cycle R→A→G"
+              >
+                {g.letter}
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-navy-800">{g.label}</p>
+                <p className="text-navy-700/70">{g.note || g.prompt}</p>
+              </div>
+              <button
+                className="flex-shrink-0 text-[11px] font-semibold text-accent hover:underline"
+                onClick={() => onAddGapAction(`[${g.label}] ${g.prompt}`)}
+              >
+                ＋ action
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

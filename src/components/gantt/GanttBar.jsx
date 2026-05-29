@@ -3,6 +3,7 @@ import { barGeometry, DAY_WIDTH, xToDate } from './timeline.js';
 import { statusColor, STALE_DAYS } from '../../lib/status.js';
 import { initials } from '../../store/store.jsx';
 import { daysAgo, daysBetween, addDays } from '../../lib/dates.js';
+import { MeddpiccMeter } from '../shared/Meddpicc.jsx';
 
 // A draggable / resizable workstream bar.
 // - Drag the body to shift both dates.
@@ -105,6 +106,13 @@ export default function GanttBar({ ws, domain, ownerName, selected, onSelect, on
         <span className="truncate font-medium">{ws.title}</span>
         <span className="ml-auto flex-shrink-0 font-semibold tabular-nums">{ws.percentComplete}%</span>
       </div>
+
+      {/* Qualification meter for sales opportunities */}
+      {ws.function === 'sales' && ws.meddpicc && (
+        <span className="absolute inset-x-0 bottom-0 z-10 h-[3px]">
+          <MeddpiccMeter meddpicc={ws.meddpicc} variant="strip" />
+        </span>
+      )}
 
       {stale && (
         <span

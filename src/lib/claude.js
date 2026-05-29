@@ -3,6 +3,7 @@
 // catch so the user always falls back to manual entry — the AI never blocks the
 // workflow.
 import { resolveRelativeDate, todayISO } from './dates.js';
+import { MEDDPICC_KEYS } from './meddpicc.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 1500;
@@ -171,6 +172,36 @@ Keep it friendly and brief. Return the message text only — no subject line, no
   const moved = touched.map((t) => `- ${t.title}: ${t.afterStatus} @ ${t.afterPercent}%`).join('\n');
   const user = `Team member: ${memberName}\nWorkstreams we touched:\n${moved}\n\nTheir new commitments:\n${items}`;
   return callClaude(system, user);
+}
+
+// ---------------------------------------------------------------------------
+// Feature 5: MEDDPICC COACH
+// Given an opportunity's notes + current scorecard, suggest state fills the
+// notes justify and the top gaps to close this week with drafted questions.
+// ---------------------------------------------------------------------------
+export async function meddpiccCoach(opp) {
+  const system = `You are a sharp MEDDPICC deal coach helping a strategic seller qualify an enterprise opportunity.
+You receive the opportunity, its recent notes, and the current scorecard where each element is red (gap), amber (in progress) or green (solid).
+Return ONLY JSON (no prose, no backticks):
+{"fills":[{"key":"<element>","state":"red|amber|green","why":"<short justification from the notes>"}],
+"focus":[{"key":"<element>","question":"<one sharp discovery question to advance it>"}]}
+Rules:
+- "fills": only suggest a state change where the NOTES clearly justify it; omit elements with no evidence. Be conservative.
+- "focus": pick the 2-3 most important non-green elements to close this week; write a crisp, specific discovery question for each.
+- element keys MUST be from: ${MEDDPICC_KEYS.join(', ')}.`;
+
+  const card = opp.meddpicc || {};
+  const scoreLines = MEDDPICC_KEYS.map((k) => {
+    const c = card[k] || {};
+    return `- ${k}: ${c.state || 'red'}${c.note ? ` — ${c.note}` : ''}`;
+  }).join('\n');
+  const notes = (opp.notes || []).map((n) => `- ${n}`).join('\n') || '(no notes)';
+  const user = `Opportunity: ${opp.title} (${opp.account})\nStatus: ${opp.status} · Value: ${opp.value}\n\nCurrent MEDDPICC:\n${scoreLines}\n\nRecent notes:\n${notes}`;
+
+  const text = await callClaude(system, user);
+  const json = parseJSON(text);
+  const valid = (arr) => (Array.isArray(arr) ? arr.filter((x) => MEDDPICC_KEYS.includes(x.key)) : []);
+  return { fills: valid(json.fills), focus: valid(json.focus) };
 }
 
 // ---------------------------------------------------------------------------
