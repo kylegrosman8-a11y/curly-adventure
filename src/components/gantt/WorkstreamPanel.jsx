@@ -5,6 +5,8 @@ import { MeddpiccScorecard } from '../shared/Meddpicc.jsx';
 import { isSales, coeTypeMeta } from '../../lib/functions.js';
 import { MEDDPICC_ELEMENTS, meddpiccGaps, MEDDPICC_STATES } from '../../lib/meddpicc.js';
 import { meddpiccCoach, hasApiKey, AIError } from '../../lib/claude.js';
+import WorkstreamForm from '../edit/WorkstreamForm.jsx';
+import MilestoneForm from '../edit/MilestoneForm.jsx';
 import { STATUS_ORDER, STATUSES, ACTION_STATUSES, formatValue } from '../../lib/status.js';
 import { shortDate, daysAgo, isOverdue, addDays, todayISO } from '../../lib/dates.js';
 
@@ -15,6 +17,8 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
   const ws = store.workstreams.find((w) => w.id === workstreamId);
   const [noteText, setNoteText] = useState('');
   const [newAction, setNewAction] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [msForm, setMsForm] = useState(null);
 
   if (!ws) return null;
   const account = accountById.get(ws.accountId);
@@ -43,9 +47,18 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
           </div>
           <h2 className="truncate text-base font-semibold text-navy-800">{ws.title}</h2>
         </div>
-        <button onClick={onClose} className="rounded p-1 text-navy-700/60 hover:bg-navy-50" aria-label="Close panel">
-          ✕
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setEditOpen(true)}
+            className="rounded-full px-2 py-1 text-[11px] font-medium text-navy-700/60 hover:bg-navy-50 hover:text-navy-800"
+            title="Edit workstream"
+          >
+            ✎ Edit
+          </button>
+          <button onClick={onClose} className="rounded p-1 text-navy-700/60 hover:bg-navy-50" aria-label="Close panel">
+            ✕
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
@@ -122,24 +135,35 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
         )}
 
         {/* Milestones */}
-        {milestones.length > 0 && (
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-700/60">Milestones</p>
-            <div className="space-y-1.5">
-              {milestones.map((m) => (
-                <div key={m.id} className="flex items-start gap-2 rounded-md border border-navy-100 px-2.5 py-1.5 text-sm">
-                  <span className="mt-0.5 text-accent">★</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-navy-800">
-                      {m.label} <span className="font-normal text-navy-700/60">· {shortDate(m.date)}</span>
-                    </p>
-                    {m.note && <p className="text-[11px] text-navy-700/60">{m.note}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-navy-700/60">Milestones</p>
+            <button
+              className="text-[11px] font-semibold text-accent hover:underline"
+              onClick={() => setMsForm({ defaults: { accountId: ws.accountId, workstreamId: ws.id, phase: ws.phase } })}
+            >
+              ＋ Add
+            </button>
           </div>
-        )}
+          <div className="space-y-1.5">
+            {milestones.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setMsForm({ milestone: m })}
+                className="flex w-full items-start gap-2 rounded-md border border-navy-100 px-2.5 py-1.5 text-left text-sm hover:border-accent/40 hover:bg-navy-50/40"
+              >
+                <span className="mt-0.5 text-accent">★</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-navy-800">
+                    {m.label} <span className="font-normal text-navy-700/60">· {shortDate(m.date)}</span>
+                  </p>
+                  {m.note && <p className="text-[11px] text-navy-700/60">{m.note}</p>}
+                </div>
+              </button>
+            ))}
+            {!milestones.length && <p className="text-xs text-navy-700/50">No milestones yet.</p>}
+          </div>
+        </div>
 
         {/* Action items */}
         <div>
@@ -237,6 +261,11 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
           </ol>
         </div>
       </div>
+
+      {editOpen && <WorkstreamForm open workstream={ws} onClose={() => setEditOpen(false)} />}
+      {msForm && (
+        <MilestoneForm open milestone={msForm.milestone} defaults={msForm.defaults || {}} onClose={() => setMsForm(null)} />
+      )}
     </aside>
   );
 }

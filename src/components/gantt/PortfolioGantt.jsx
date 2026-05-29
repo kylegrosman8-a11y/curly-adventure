@@ -9,6 +9,10 @@ import { EmptyState } from '../shared/ui.jsx';
 import { buildPortfolioMarkdown, downloadMarkdown, slug } from '../../lib/markdown.js';
 import { openRoadmap, buildRoadmapMarkdown } from '../../lib/roadmap.js';
 import { todayISO, shortDate } from '../../lib/dates.js';
+import WorkstreamForm from '../edit/WorkstreamForm.jsx';
+import AccountForm from '../edit/AccountForm.jsx';
+import MilestoneForm from '../edit/MilestoneForm.jsx';
+import TeamManager from '../edit/TeamManager.jsx';
 
 const LABEL_W = 220;
 
@@ -18,6 +22,11 @@ export default function PortfolioGantt() {
   const [selectedId, setSelectedId] = useState(null);
   const [filters, setFilters] = useState({ account: null, member: null, status: null });
   const [grouping, setGrouping] = useState('function'); // 'function' | 'phase'
+  // Editing modals: each holds props for the relevant form, or null when closed.
+  const [streamForm, setStreamForm] = useState(null);
+  const [accountForm, setAccountForm] = useState(null);
+  const [milestoneForm, setMilestoneForm] = useState(null);
+  const [teamOpen, setTeamOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return store.workstreams.filter((w) => {
@@ -107,17 +116,28 @@ export default function PortfolioGantt() {
               ))}
             </div>
 
-            <button
-              className="btn-ghost ml-auto !py-1.5 text-xs"
-              onClick={() =>
-                downloadMarkdown(
-                  `portfolio-${slug(todayISO())}`,
-                  buildPortfolioMarkdown({ accounts: store.accounts, workstreams: store.workstreams, memberById })
-                )
-              }
-            >
-              ↓ Export portfolio
-            </button>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button className="btn-accent !py-1.5 text-xs" onClick={() => setStreamForm({})}>
+                ＋ Stream
+              </button>
+              <button className="btn-ghost !py-1.5 text-xs" onClick={() => setAccountForm({ create: true })}>
+                ＋ Account
+              </button>
+              <button className="btn-ghost !py-1.5 text-xs" onClick={() => setTeamOpen(true)}>
+                Team
+              </button>
+              <button
+                className="btn-ghost !py-1.5 text-xs"
+                onClick={() =>
+                  downloadMarkdown(
+                    `portfolio-${slug(todayISO())}`,
+                    buildPortfolioMarkdown({ accounts: store.accounts, workstreams: store.workstreams, memberById })
+                  )
+                }
+              >
+                ↓ Export
+              </button>
+            </div>
           </div>
         </div>
 
@@ -161,7 +181,28 @@ export default function PortfolioGantt() {
                         <p className="truncate text-[11px] text-navy-700/60">{acc.owner}</p>
                       </div>
                     </div>
-                    <div className="flex flex-1 items-center justify-end gap-1.5 px-3">
+                    <div className="flex flex-1 items-center justify-end gap-1.5 px-3" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="rounded-full px-2 py-1 text-[11px] font-medium text-navy-700/60 hover:bg-white hover:text-navy-800"
+                        onClick={() => setStreamForm({ defaults: { accountId: acc.id } })}
+                        title="Add a workstream to this account"
+                      >
+                        ＋ Stream
+                      </button>
+                      <button
+                        className="rounded-full px-2 py-1 text-[11px] font-medium text-navy-700/60 hover:bg-white hover:text-navy-800"
+                        onClick={() => setMilestoneForm({ defaults: { accountId: acc.id } })}
+                        title="Add a milestone"
+                      >
+                        ＋ Milestone
+                      </button>
+                      <button
+                        className="rounded-full px-2 py-1 text-[11px] font-medium text-navy-700/60 hover:bg-white hover:text-navy-800"
+                        onClick={() => setAccountForm({ account: acc })}
+                        title="Edit account"
+                      >
+                        ✎ Edit
+                      </button>
                       <RoadmapExport account={acc} streams={accStreams} milestones={milestones} memberById={memberById} />
                     </div>
                   </div>
@@ -177,14 +218,18 @@ export default function PortfolioGantt() {
                       </div>
                       <div className="relative" style={{ width: domain.width, height: 24 }}>
                         {milestones.map((m) => (
-                          <div
+                          <button
                             key={m.id}
-                            className="absolute top-1 -translate-x-1/2 whitespace-nowrap text-xs text-accent"
+                            className="absolute top-1 -translate-x-1/2 cursor-pointer whitespace-nowrap text-xs text-accent hover:text-accent-dark"
                             style={{ left: dateToX(m.date, domain) }}
-                            title={`${m.label} — ${shortDate(m.date)}${m.note ? `\n${m.note}` : ''}`}
+                            title={`${m.label} — ${shortDate(m.date)}${m.note ? `\n${m.note}` : ''}\nClick to edit`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMilestoneForm({ milestone: m });
+                            }}
                           >
                             ★<span className="ml-0.5 text-[9px] font-medium text-navy-800">{m.label}</span>
-                          </div>
+                          </button>
                         ))}
                         {tX >= 0 && tX <= domain.width && (
                           <div className="absolute inset-y-0 z-10 w-px bg-accent/70" style={{ left: tX }} />
@@ -243,6 +288,27 @@ export default function PortfolioGantt() {
       </div>
 
       {selectedId && <WorkstreamPanel workstreamId={selectedId} onClose={() => setSelectedId(null)} />}
+
+      {streamForm && (
+        <WorkstreamForm
+          open
+          workstream={streamForm.workstream}
+          defaults={streamForm.defaults || {}}
+          onClose={() => setStreamForm(null)}
+        />
+      )}
+      {accountForm && (
+        <AccountForm open account={accountForm.account} onClose={() => setAccountForm(null)} />
+      )}
+      {milestoneForm && (
+        <MilestoneForm
+          open
+          milestone={milestoneForm.milestone}
+          defaults={milestoneForm.defaults || {}}
+          onClose={() => setMilestoneForm(null)}
+        />
+      )}
+      {teamOpen && <TeamManager open onClose={() => setTeamOpen(false)} />}
     </div>
   );
 }

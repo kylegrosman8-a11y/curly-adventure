@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useReducer, useCallback 
 import * as db from '../db/db.js';
 import { uid } from '../lib/id.js';
 import { todayISO } from '../lib/dates.js';
-import { normaliseMeddpicc } from '../lib/meddpicc.js';
+import { normaliseMeddpicc, emptyMeddpicc } from '../lib/meddpicc.js';
 
 const StoreContext = createContext(null);
 
@@ -178,6 +178,95 @@ export function StoreProvider({ children }) {
     [state.milestones, upsert]
   );
 
+  const deleteMilestone = useCallback((id) => removeRecord('milestones', id), [removeRecord]);
+
+  // ---- Workstream create / delete -----------------------------------------
+  const createWorkstream = useCallback(
+    (fields) => {
+      const isSales = fields.function === 'sales';
+      const ws = {
+        id: uid('ws'),
+        accountId: fields.accountId,
+        function: fields.function || 'coe',
+        coeType: fields.function === 'coe' ? fields.coeType || null : null,
+        phase: fields.phase || '',
+        title: fields.title || 'New workstream',
+        ownerId: fields.ownerId || null,
+        startDate: fields.startDate || todayISO(),
+        endDate: fields.endDate || todayISO(),
+        percentComplete: Number(fields.percentComplete) || 0,
+        status: fields.status || 'not_started',
+        lastTouched: todayISO(),
+        value: Number(fields.value) || 0,
+        meddpicc: isSales ? emptyMeddpicc() : undefined,
+        notes: [],
+      };
+      return upsert('workstreams', ws);
+    },
+    [upsert]
+  );
+
+  const deleteWorkstream = useCallback(
+    (id) => {
+      // Cascade: remove the stream's notes, actions and milestones.
+      state.notes.filter((n) => n.workstreamId === id).forEach((n) => removeRecord('notes', n.id));
+      state.actionItems.filter((a) => a.workstreamId === id).forEach((a) => removeRecord('actionItems', a.id));
+      state.milestones.filter((m) => m.workstreamId === id).forEach((m) => removeRecord('milestones', m.id));
+      removeRecord('workstreams', id);
+    },
+    [state.notes, state.actionItems, state.milestones, removeRecord]
+  );
+
+  // ---- Account create / update / delete -----------------------------------
+  const createAccount = useCallback(
+    (fields) => upsert('accounts', { id: uid('ac'), name: fields.name || 'New account', owner: fields.owner || '', color: fields.color || '#6d5efc', roadmap: fields.roadmap || {} }),
+    [upsert]
+  );
+
+  const updateAccount = useCallback(
+    (id, patch) => {
+      const a = state.accounts.find((x) => x.id === id);
+      if (!a) return null;
+      return upsert('accounts', { ...a, ...patch });
+    },
+    [state.accounts, upsert]
+  );
+
+  const deleteAccount = useCallback(
+    (id) => {
+      const streams = state.workstreams.filter((w) => w.accountId === id);
+      streams.forEach((w) => deleteWorkstream(w.id));
+      state.milestones.filter((m) => m.accountId === id).forEach((m) => removeRecord('milestones', m.id));
+      removeRecord('accounts', id);
+    },
+    [state.workstreams, state.milestones, deleteWorkstream, removeRecord]
+  );
+
+  // ---- Team member create / update / delete -------------------------------
+  const addMember = useCallback(
+    (fields) => upsert('team', { id: uid('tm'), name: fields.name || 'New member', role: fields.role || '' }),
+    [upsert]
+  );
+
+  const updateMember = useCallback(
+    (id, patch) => {
+      const m = state.team.find((x) => x.id === id);
+      if (!m) return null;
+      return upsert('team', { ...m, ...patch });
+    },
+    [state.team, upsert]
+  );
+
+  const deleteMember = useCallback(
+    (id) => {
+      // Unassign the member from any streams/actions they owned.
+      state.workstreams.filter((w) => w.ownerId === id).forEach((w) => upsert('workstreams', { ...w, ownerId: null }));
+      state.actionItems.filter((a) => a.ownerId === id).forEach((a) => upsert('actionItems', { ...a, ownerId: null }));
+      removeRecord('team', id);
+    },
+    [state.workstreams, state.actionItems, upsert, removeRecord]
+  );
+
   const saveCheckin = useCallback(
     (session) => {
       const record = {
@@ -209,6 +298,15 @@ export function StoreProvider({ children }) {
       updateActionItem,
       addMilestone,
       updateMilestone,
+      deleteMilestone,
+      createWorkstream,
+      deleteWorkstream,
+      createAccount,
+      updateAccount,
+      deleteAccount,
+      addMember,
+      updateMember,
+      deleteMember,
       saveCheckin,
       resetData,
     }),
@@ -224,6 +322,15 @@ export function StoreProvider({ children }) {
       updateActionItem,
       addMilestone,
       updateMilestone,
+      deleteMilestone,
+      createWorkstream,
+      deleteWorkstream,
+      createAccount,
+      updateAccount,
+      deleteAccount,
+      addMember,
+      updateMember,
+      deleteMember,
       saveCheckin,
       resetData,
     ]
