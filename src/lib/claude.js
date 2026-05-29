@@ -100,12 +100,14 @@ export function parseJSON(text) {
 export async function extractUpdates(rawNotes, workstreams) {
   const system = `You convert messy meeting notes about enterprise account workstreams into structured updates.
 You are given the raw notes and the current list of workstreams (id, title, owner).
-Map each mention to the CLOSEST workstream by title/owner. Infer status from language:
-"slipped/behind/at risk" -> "slipping"; "stuck/waiting on/can't proceed/blocked" -> "blocked"; otherwise leave status unchanged.
+Map each mention to the CLOSEST workstream by title/owner. Infer status from language using this 5-state legend:
+"done/shipped/live/complete" -> "complete"; "on track/will make it/good" -> "will_meet";
+"slipped/behind/at risk/tight" -> "at_risk"; "won't make it/blocked/stuck/waiting on/can't proceed" -> "will_not_meet";
+"not started/hasn't begun/yet to kick off" -> "not_started". Otherwise leave status unchanged.
 Extract any commitments ("I'll...", "X will...", "follow up", "send", "chase") as actions.
 For dates, resolve relative phrases ("next week", "by Friday", "in 3 days") to ISO YYYY-MM-DD. Today is ${todayISO()}.
 Return ONLY JSON (no prose, no backticks) shaped exactly:
-{"updates":[{"workstreamId":"...","newStatus":"on_track|slipping|blocked"?,"newPercent":0-100?,"noteText":"..."?}],
+{"updates":[{"workstreamId":"...","newStatus":"complete|will_meet|at_risk|will_not_meet|not_started"?,"newPercent":0-100?,"noteText":"..."?}],
 "newActions":[{"workstreamIdOrNull":"..."|null,"text":"...","ownerGuess":"...","dueGuess":"YYYY-MM-DD"}]}
 Only include fields you have evidence for. Omit newStatus/newPercent/noteText when unknown.`;
 

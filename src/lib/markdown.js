@@ -30,7 +30,7 @@ export function slug(s) {
  */
 export function buildCheckinMarkdown({ memberName, date, touched }) {
   const moved = touched.filter((t) => t.beforeStatus !== t.afterStatus || t.beforePercent !== t.afterPercent || t.note);
-  const blocked = touched.filter((t) => t.afterStatus === 'blocked');
+  const blocked = touched.filter((t) => t.afterStatus === 'will_not_meet' || t.afterStatus === 'at_risk');
   const actions = touched.flatMap((t) => (t.newActions || []).map((a) => ({ ...a, title: t.title })));
 
   const lines = [];

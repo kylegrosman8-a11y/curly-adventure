@@ -21,6 +21,9 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
     .filter((n) => n.workstreamId === ws.id)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
   const actions = store.actionItems.filter((a) => a.workstreamId === ws.id);
+  const milestones = store.milestones
+    .filter((m) => m.workstreamId === ws.id)
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
 
   return (
     <aside className="flex h-full w-[420px] flex-shrink-0 flex-col border-l border-navy-100 bg-white">
@@ -31,6 +34,9 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
             <FunctionTag fn={ws.function} size="sm" />
             {ws.function === 'coe' && ws.coeType && (
               <span className="text-[11px] font-semibold text-navy-700/70">{coeTypeMeta(ws.coeType).label}</span>
+            )}
+            {ws.phase && (
+              <span className="rounded bg-navy-50 px-1.5 py-0.5 text-[10px] font-semibold text-navy-700/70">{ws.phase}</span>
             )}
           </div>
           <h2 className="truncate text-base font-semibold text-navy-800">{ws.title}</h2>
@@ -64,19 +70,19 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
         {/* Status quick set */}
         <div>
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-navy-700/60">Set status</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {STATUS_ORDER.map((s) => (
               <button
                 key={s}
                 onClick={() => store.updateWorkstream(ws.id, { status: s }, { touch: true })}
-                className="flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors"
+                className="rounded-md border px-2 py-1 text-xs font-medium transition-colors"
                 style={
                   ws.status === s
                     ? { background: STATUSES[s].color, borderColor: STATUSES[s].color, color: '#fff' }
                     : { borderColor: '#dce3ef', color: STATUSES[s].color }
                 }
               >
-                {STATUSES[s].label}
+                {STATUSES[s].short}
               </button>
             ))}
           </div>
@@ -108,6 +114,26 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
             <p className="mt-1.5 text-[11px] text-navy-700/50">
               Inline editing, check-in gap prompts and the AI coach land in the next phase.
             </p>
+          </div>
+        )}
+
+        {/* Milestones */}
+        {milestones.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-700/60">Milestones</p>
+            <div className="space-y-1.5">
+              {milestones.map((m) => (
+                <div key={m.id} className="flex items-start gap-2 rounded-md border border-navy-100 px-2.5 py-1.5 text-sm">
+                  <span className="mt-0.5 text-accent">★</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-navy-800">
+                      {m.label} <span className="font-normal text-navy-700/60">· {shortDate(m.date)}</span>
+                    </p>
+                    {m.note && <p className="text-[11px] text-navy-700/60">{m.note}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -16,6 +16,7 @@ const initialState = {
   notes: [],
   actionItems: [],
   checkins: [],
+  milestones: [],
 };
 
 function reducer(state, action) {
@@ -55,6 +56,7 @@ const STORE_MAP = {
   notes: 'notes',
   actionItems: 'actionItems',
   checkins: 'checkins',
+  milestones: 'milestones',
 };
 
 export function StoreProvider({ children }) {
@@ -150,6 +152,32 @@ export function StoreProvider({ children }) {
     [state.actionItems, upsert]
   );
 
+  const addMilestone = useCallback(
+    (fields) => {
+      const m = {
+        id: uid('ms'),
+        accountId: fields.accountId || null,
+        workstreamId: fields.workstreamId || null,
+        phase: fields.phase || null,
+        date: fields.date || todayISO(),
+        label: fields.label || 'Milestone',
+        note: fields.note || '',
+        type: fields.type || 'milestone',
+      };
+      return upsert('milestones', m);
+    },
+    [upsert]
+  );
+
+  const updateMilestone = useCallback(
+    (id, patch) => {
+      const m = state.milestones.find((x) => x.id === id);
+      if (!m) return null;
+      return upsert('milestones', { ...m, ...patch });
+    },
+    [state.milestones, upsert]
+  );
+
   const saveCheckin = useCallback(
     (session) => {
       const record = {
@@ -179,6 +207,8 @@ export function StoreProvider({ children }) {
       addNote,
       addActionItem,
       updateActionItem,
+      addMilestone,
+      updateMilestone,
       saveCheckin,
       resetData,
     }),
@@ -192,6 +222,8 @@ export function StoreProvider({ children }) {
       addNote,
       addActionItem,
       updateActionItem,
+      addMilestone,
+      updateMilestone,
       saveCheckin,
       resetData,
     ]

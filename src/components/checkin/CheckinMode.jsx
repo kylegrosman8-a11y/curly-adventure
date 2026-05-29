@@ -109,8 +109,8 @@ export default function CheckinMode() {
         account: '',
         title: 'General follow-ups',
         owner: member?.name || '',
-        beforeStatus: 'on_track',
-        afterStatus: 'on_track',
+        beforeStatus: 'will_meet',
+        afterStatus: 'will_meet',
         beforePercent: 0,
         afterPercent: 0,
         note: '',
@@ -262,19 +262,19 @@ function CheckinRow({ ws, account, touched, noteDraft, onStatus, onPercent, onNo
         {/* Status buttons */}
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">Status</p>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {STATUS_ORDER.map((s) => (
               <button
                 key={s}
                 onClick={() => onStatus(s)}
-                className="flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors"
+                className="rounded-md border px-2 py-1 text-xs font-medium transition-colors"
                 style={
                   ws.status === s
                     ? { background: STATUSES[s].color, borderColor: STATUSES[s].color, color: '#fff' }
                     : { borderColor: '#dce3ef', color: STATUSES[s].color }
                 }
               >
-                {STATUSES[s].label}
+                {STATUSES[s].short}
               </button>
             ))}
           </div>

@@ -1,14 +1,28 @@
-// RAG status metadata shared across views.
+// Workstream status: the 5-state RAG legend used in exec reporting.
 export const STATUSES = {
-  on_track: { id: 'on_track', label: 'On track', short: 'On track', color: '#16a34a', dot: 'bg-rag-on' },
-  slipping: { id: 'slipping', label: 'Slipping', short: 'Slipping', color: '#d97706', dot: 'bg-rag-slip' },
-  blocked: { id: 'blocked', label: 'Blocked', short: 'Blocked', color: '#dc2626', dot: 'bg-rag-block' },
+  complete: { id: 'complete', label: 'Complete', short: 'Complete', color: '#2563eb' },
+  will_meet: { id: 'will_meet', label: 'Will Meet', short: 'Will Meet', color: '#16a34a' },
+  at_risk: { id: 'at_risk', label: 'At Risk', short: 'At Risk', color: '#d97706' },
+  will_not_meet: { id: 'will_not_meet', label: 'Will Not Meet', short: "Won't Meet", color: '#dc2626' },
+  not_started: { id: 'not_started', label: 'Not Started', short: 'Not Started', color: '#94a3b8' },
 };
 
-export const STATUS_ORDER = ['on_track', 'slipping', 'blocked'];
+export const STATUS_ORDER = ['complete', 'will_meet', 'at_risk', 'will_not_meet', 'not_started'];
+
+// Map the earlier 3-state model onto the new legend (for migrating old data).
+export const LEGACY_STATUS = {
+  on_track: 'will_meet',
+  slipping: 'at_risk',
+  blocked: 'will_not_meet',
+};
+
+export function normaliseStatus(status) {
+  if (STATUSES[status]) return status;
+  return LEGACY_STATUS[status] || 'not_started';
+}
 
 export function statusColor(status) {
-  return (STATUSES[status] || STATUSES.on_track).color;
+  return (STATUSES[normaliseStatus(status)] || STATUSES.not_started).color;
 }
 
 export const ACTION_STATUSES = {

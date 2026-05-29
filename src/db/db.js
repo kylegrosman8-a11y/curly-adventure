@@ -2,9 +2,10 @@
 // One object store per entity type. Everything survives reloads with no backend.
 import { openDB } from 'idb';
 import { buildSeed, SEED_VERSION } from './seed.js';
+import { normaliseStatus } from '../lib/status.js';
 
 const DB_NAME = 'account-war-room';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORES = [
   'accounts',
@@ -13,6 +14,7 @@ export const STORES = [
   'notes',
   'actionItems',
   'checkins',
+  'milestones',
   'meta',
 ];
 
@@ -46,23 +48,27 @@ export async function loadAll() {
     await seedDatabase();
   }
 
-  const [accounts, team, workstreams, notes, actionItems, checkins] = await Promise.all([
+  const [accounts, team, workstreams, notes, actionItems, checkins, milestones] = await Promise.all([
     db.getAll('accounts'),
     db.getAll('team'),
     db.getAll('workstreams'),
     db.getAll('notes'),
     db.getAll('actionItems'),
     db.getAll('checkins'),
+    db.getAll('milestones'),
   ]);
 
-  return { accounts, team, workstreams, notes, actionItems, checkins };
+  // Migrate any workstreams created under the old 3-state status model.
+  for (const w of workstreams) w.status = normaliseStatus(w.status);
+
+  return { accounts, team, workstreams, notes, actionItems, checkins, milestones };
 }
 
 async function seedDatabase() {
   const db = await getDB();
   const seed = buildSeed();
   const tx = db.transaction(
-    ['accounts', 'team', 'workstreams', 'notes', 'actionItems', 'checkins', 'meta'],
+    ['accounts', 'team', 'workstreams', 'notes', 'actionItems', 'checkins', 'milestones', 'meta'],
     'readwrite'
   );
   for (const a of seed.accounts) tx.objectStore('accounts').put(a);
@@ -71,6 +77,7 @@ async function seedDatabase() {
   for (const n of seed.notes) tx.objectStore('notes').put(n);
   for (const ai of seed.actionItems) tx.objectStore('actionItems').put(ai);
   for (const c of seed.checkins) tx.objectStore('checkins').put(c);
+  for (const m of seed.milestones || []) tx.objectStore('milestones').put(m);
   tx.objectStore('meta').put(new Date().toISOString(), 'seeded');
   tx.objectStore('meta').put(SEED_VERSION, 'seedVersion');
   await tx.done;
