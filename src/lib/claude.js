@@ -1,0 +1,250 @@
+// Anthropic API client + the four AI features.
+// Everything degrades gracefully: every feature throws a typed error the UI can
+// catch so the user always falls back to manual entry — the AI never blocks the
+// workflow.
+import { resolveRelativeDate, todayISO } from './dates.js';
+import { MEDDPICC_KEYS } from './meddpicc.js';
+
+const MODEL = 'claude-sonnet-4-20250514';
+const MAX_TOKENS = 1500;
+const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+
+export class AIError extends Error {
+  constructor(message, { kind = 'unknown' } = {}) {
+    super(message);
+    this.name = 'AIError';
+    this.kind = kind;
+  }
+}
+
+// AI can run two ways:
+//  - 'proxy'  : calls our serverless function (/api/claude), key stays server-side.
+//               Enabled by setting VITE_AI_PROXY=1 (the recommended production setup).
+//  - 'direct' : calls Anthropic straight from the browser using VITE_ANTHROPIC_API_KEY.
+//               Handy for local dev; the key is exposed, so avoid in production.
+const PROXY_ENDPOINT = '/api/claude';
+
+export function aiMode() {
+  if (import.meta.env.VITE_ANTHROPIC_API_KEY) return 'direct';
+  if (import.meta.env.VITE_AI_PROXY) return 'proxy';
+  return 'off';
+}
+
+export function hasApiKey() {
+  return aiMode() !== 'off';
+}
+
+/**
+ * Single helper that returns concatenated text blocks from the Messages API,
+ * via the serverless proxy or directly depending on configuration.
+ */
+export async function callClaude(systemPrompt, userContent) {
+  const mode = aiMode();
+  if (mode === 'off') {
+    throw new AIError('AI is not configured (set VITE_AI_PROXY or VITE_ANTHROPIC_API_KEY).', {
+      kind: 'no_key',
+    });
+  }
+
+  let res;
+  try {
+    if (mode === 'direct') {
+      res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          // Allow calling the API directly from the browser.
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }],
+        }),
+      });
+    } else {
+      // Proxy: the server holds the key and builds the upstream request.
+      res = await fetch(PROXY_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ system: systemPrompt, userContent }),
+      });
+    }
+  } catch (e) {
+    throw new AIError(`Network error reaching the AI service: ${e.message}`, {
+      kind: 'network',
+    });
+  }
+
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = body?.error?.message || JSON.stringify(body);
+    } catch {
+      detail = res.statusText;
+    }
+    throw new AIError(`Anthropic API error ${res.status}: ${detail}`, { kind: 'api' });
+  }
+
+  const data = await res.json();
+  const text = (data.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+  return text;
+}
+
+/** Strip ```json fences / prose and parse JSON defensively. */
+export function parseJSON(text) {
+  if (!text) throw new AIError('Empty response from model.', { kind: 'parse' });
+  let cleaned = text.trim();
+  // Remove ```json ... ``` or ``` ... ``` fences.
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  // If there's leading/trailing prose, grab the outermost JSON object/array.
+  const firstBrace = cleaned.search(/[[{]/);
+  const lastBrace = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new AIError(`Could not parse model JSON: ${e.message}`, { kind: 'parse' });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feature 1: NOTES -> STRUCTURED UPDATES
+// ---------------------------------------------------------------------------
+export async function extractUpdates(rawNotes, workstreams) {
+  const system = `You convert messy meeting notes about enterprise account workstreams into structured updates.
+You are given the raw notes and the current list of workstreams (id, title, owner).
+Map each mention to the CLOSEST workstream by title/owner. Infer status from language using this 5-state legend:
+"done/shipped/live/complete" -> "complete"; "on track/will make it/good" -> "will_meet";
+"slipped/behind/at risk/tight" -> "at_risk"; "won't make it/blocked/stuck/waiting on/can't proceed" -> "will_not_meet";
+"not started/hasn't begun/yet to kick off" -> "not_started". Otherwise leave status unchanged.
+Extract any commitments ("I'll...", "X will...", "follow up", "send", "chase") as actions.
+For dates, resolve relative phrases ("next week", "by Friday", "in 3 days") to ISO YYYY-MM-DD. Today is ${todayISO()}.
+Return ONLY JSON (no prose, no backticks) shaped exactly:
+{"updates":[{"workstreamId":"...","newStatus":"complete|will_meet|at_risk|will_not_meet|not_started"?,"newPercent":0-100?,"noteText":"..."?}],
+"newActions":[{"workstreamIdOrNull":"..."|null,"text":"...","ownerGuess":"...","dueGuess":"YYYY-MM-DD"}]}
+Only include fields you have evidence for. Omit newStatus/newPercent/noteText when unknown.`;
+
+  const wsList = workstreams
+    .map((w) => `- id=${w.id} | title="${w.title}" | owner=${w.ownerName || ''}`)
+    .join('\n');
+  const user = `Current workstreams:\n${wsList}\n\nRaw notes:\n"""\n${rawNotes}\n"""`;
+
+  const text = await callClaude(system, user);
+  const json = parseJSON(text);
+
+  // Normalise + resolve any non-ISO dues defensively.
+  const updates = Array.isArray(json.updates) ? json.updates : [];
+  const newActions = (Array.isArray(json.newActions) ? json.newActions : []).map((a) => ({
+    workstreamIdOrNull: a.workstreamIdOrNull ?? null,
+    text: a.text || '',
+    ownerGuess: a.ownerGuess || '',
+    dueGuess: /^\d{4}-\d{2}-\d{2}$/.test(a.dueGuess || '')
+      ? a.dueGuess
+      : resolveRelativeDate(a.dueGuess),
+  }));
+  return { updates, newActions };
+}
+
+// ---------------------------------------------------------------------------
+// Feature 2: CHECK-IN SUMMARY (Markdown)
+// ---------------------------------------------------------------------------
+export async function summariseCheckin(touched) {
+  const system = `You write a crisp executive check-in summary in Markdown.
+Sections, in this order, omitting any that are empty:
+## What moved
+## Blocked / needs help
+## New actions (owner — due)
+Answer-first, terse, exec tone. Use bullet points. No preamble, no closing remarks. Return Markdown only.`;
+
+  const lines = touched
+    .map((t) => {
+      const parts = [`- ${t.account} / ${t.title} (owner ${t.owner})`];
+      if (t.beforeStatus !== t.afterStatus) parts.push(`status ${t.beforeStatus} -> ${t.afterStatus}`);
+      if (t.beforePercent !== t.afterPercent) parts.push(`${t.beforePercent}% -> ${t.afterPercent}%`);
+      if (t.note) parts.push(`note: ${t.note}`);
+      if (t.newActions?.length) parts.push(`actions: ${t.newActions.join('; ')}`);
+      return parts.join(' | ');
+    })
+    .join('\n');
+  const user = `Workstreams touched this session, with before/after state:\n${lines}`;
+  return callClaude(system, user);
+}
+
+// ---------------------------------------------------------------------------
+// Feature 3: FOLLOW-UP MESSAGE (per member)
+// ---------------------------------------------------------------------------
+export async function followUpMessage(memberName, touched, actions) {
+  const system = `You write a short, warm direct message a manager can paste to a team member after a weekly check-in.
+Open with "Here's what you committed to this week" (adapt naturally). Then a clean markdown checklist of their action items with due dates.
+Keep it friendly and brief. Return the message text only — no subject line, no signature placeholder beyond a simple sign-off.`;
+
+  const items = actions.length
+    ? actions.map((a) => `- ${a.text}${a.due ? ` (due ${a.due})` : ''}`).join('\n')
+    : '(no new actions)';
+  const moved = touched.map((t) => `- ${t.title}: ${t.afterStatus} @ ${t.afterPercent}%`).join('\n');
+  const user = `Team member: ${memberName}\nWorkstreams we touched:\n${moved}\n\nTheir new commitments:\n${items}`;
+  return callClaude(system, user);
+}
+
+// ---------------------------------------------------------------------------
+// Feature 5: MEDDPICC COACH
+// Given an opportunity's notes + current scorecard, suggest state fills the
+// notes justify and the top gaps to close this week with drafted questions.
+// ---------------------------------------------------------------------------
+export async function meddpiccCoach(opp) {
+  const system = `You are a sharp MEDDPICC deal coach helping a strategic seller qualify an enterprise opportunity.
+You receive the opportunity, its recent notes, and the current scorecard where each element is red (gap), amber (in progress) or green (solid).
+Return ONLY JSON (no prose, no backticks):
+{"fills":[{"key":"<element>","state":"red|amber|green","why":"<short justification from the notes>"}],
+"focus":[{"key":"<element>","question":"<one sharp discovery question to advance it>"}]}
+Rules:
+- "fills": only suggest a state change where the NOTES clearly justify it; omit elements with no evidence. Be conservative.
+- "focus": pick the 2-3 most important non-green elements to close this week; write a crisp, specific discovery question for each.
+- element keys MUST be from: ${MEDDPICC_KEYS.join(', ')}.`;
+
+  const card = opp.meddpicc || {};
+  const scoreLines = MEDDPICC_KEYS.map((k) => {
+    const c = card[k] || {};
+    return `- ${k}: ${c.state || 'red'}${c.note ? ` — ${c.note}` : ''}`;
+  }).join('\n');
+  const notes = (opp.notes || []).map((n) => `- ${n}`).join('\n') || '(no notes)';
+  const user = `Opportunity: ${opp.title} (${opp.account})\nStatus: ${opp.status} · Value: ${opp.value}\n\nCurrent MEDDPICC:\n${scoreLines}\n\nRecent notes:\n${notes}`;
+
+  const text = await callClaude(system, user);
+  const json = parseJSON(text);
+  const valid = (arr) => (Array.isArray(arr) ? arr.filter((x) => MEDDPICC_KEYS.includes(x.key)) : []);
+  return { fills: valid(json.fills), focus: valid(json.focus) };
+}
+
+// ---------------------------------------------------------------------------
+// Feature 4: HVA SCORING (top 5)
+// ---------------------------------------------------------------------------
+export async function scoreHVAs(items) {
+  const system = `You rank open action items by business impact for the week.
+Score = normalized(parent workstream value) x urgency(days-to-due, sooner/overdue = more urgent).
+Return ONLY JSON (no prose, no backticks):
+{"ranked":[{"id":"<actionItemId>","why":"<one concise line on why this matters>"}]}
+Return at most the top 5, most important first. Today is ${todayISO()}.`;
+
+  const list = items
+    .map(
+      (i) =>
+        `- id=${i.id} | text="${i.text}" | account=${i.account} | value=${i.value} | due=${i.dueDate || 'none'} | status=${i.status}`
+    )
+    .join('\n');
+  const user = `Open action items:\n${list}`;
+  const text = await callClaude(system, user);
+  const json = parseJSON(text);
+  const ranked = Array.isArray(json.ranked) ? json.ranked : [];
+  return ranked.slice(0, 5);
+}
