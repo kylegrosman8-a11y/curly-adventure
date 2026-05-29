@@ -64,26 +64,34 @@ export const MEDDPICC_ELEMENTS = [
 
 export const MEDDPICC_KEYS = MEDDPICC_ELEMENTS.map((e) => e.key);
 
+// Red / Amber / Green per element: red = gap / at risk, amber = in progress /
+// partial, green = solid / confirmed.
 export const MEDDPICC_STATES = {
-  unknown: { id: 'unknown', label: 'Unknown', weight: 0, color: '#cbd5e1' },
-  partial: { id: 'partial', label: 'Partial', weight: 0.5, color: '#d97706' },
-  confirmed: { id: 'confirmed', label: 'Confirmed', weight: 1, color: '#16a34a' },
+  red: { id: 'red', label: 'Red', weight: 0, color: '#dc2626', meaning: 'Gap / at risk' },
+  amber: { id: 'amber', label: 'Amber', weight: 0.5, color: '#d97706', meaning: 'In progress' },
+  green: { id: 'green', label: 'Green', weight: 1, color: '#16a34a', meaning: 'Solid' },
 };
 
-/** A fresh, all-unknown scorecard. */
+export const MEDDPICC_STATE_ORDER = ['red', 'amber', 'green'];
+
+/** A fresh scorecard — everything starts red (an unfilled element is a gap). */
 export function emptyMeddpicc() {
   const m = {};
-  for (const k of MEDDPICC_KEYS) m[k] = { state: 'unknown', note: '' };
+  for (const k of MEDDPICC_KEYS) m[k] = { state: 'red', note: '' };
   return m;
 }
 
-/** Normalise any stored shape into a complete scorecard. */
+/** Normalise any stored shape into a complete scorecard, migrating old states. */
 export function normaliseMeddpicc(m) {
   const base = emptyMeddpicc();
   if (!m) return base;
+  // Back-compat with the earlier unknown/partial/confirmed model.
+  const legacy = { unknown: 'red', partial: 'amber', confirmed: 'green' };
   for (const k of MEDDPICC_KEYS) {
     const cell = m[k];
-    if (cell && MEDDPICC_STATES[cell.state]) base[k] = { state: cell.state, note: cell.note || '' };
+    if (!cell) continue;
+    const state = MEDDPICC_STATES[cell.state] ? cell.state : legacy[cell.state];
+    if (state) base[k] = { state, note: cell.note || '' };
   }
   return base;
 }
@@ -91,20 +99,20 @@ export function normaliseMeddpicc(m) {
 /** Score a scorecard: counts, weighted 0..1 score, and a 0..100 percentage. */
 export function scoreMeddpicc(m) {
   const card = normaliseMeddpicc(m);
-  let confirmed = 0;
-  let partial = 0;
+  let green = 0;
+  let amber = 0;
   let weight = 0;
   for (const k of MEDDPICC_KEYS) {
     const s = card[k].state;
     weight += MEDDPICC_STATES[s].weight;
-    if (s === 'confirmed') confirmed += 1;
-    else if (s === 'partial') partial += 1;
+    if (s === 'green') green += 1;
+    else if (s === 'amber') amber += 1;
   }
   const total = MEDDPICC_KEYS.length;
   return {
-    confirmed,
-    partial,
-    unknown: total - confirmed - partial,
+    green,
+    amber,
+    red: total - green - amber,
     total,
     score: weight / total, // 0..1
     pct: Math.round((weight / total) * 100),
@@ -124,9 +132,9 @@ export function meddpiccBand(pct) {
  */
 export function meddpiccGaps(m) {
   const card = normaliseMeddpicc(m);
-  return MEDDPICC_ELEMENTS.filter((e) => card[e.key].state !== 'confirmed')
+  return MEDDPICC_ELEMENTS.filter((e) => card[e.key].state !== 'green')
     .map((e) => ({ ...e, state: card[e.key].state, note: card[e.key].note }))
-    .sort((a, b) => (a.state === b.state ? 0 : a.state === 'unknown' ? -1 : 1));
+    .sort((a, b) => (a.state === b.state ? 0 : a.state === 'red' ? -1 : 1));
 }
 
 /** Per-element ordered list with current values, for rendering the scorecard. */

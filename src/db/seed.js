@@ -6,7 +6,7 @@ import { todayISO, addDays } from '../lib/dates.js';
 import { emptyMeddpicc } from '../lib/meddpicc.js';
 
 // Bump when the seed shape changes so existing installs re-seed cleanly.
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 // Helper to build a MEDDPICC scorecard from a compact spec.
 function meddpicc(spec) {
@@ -38,7 +38,7 @@ export function buildSeed() {
   ];
 
   const workstreams = [
-    // ---- NAB: a Sales opportunity + two COE delivery streams ----
+    // ---- NAB: a Sales opportunity + two different COEs (FINS, Planning) ----
     {
       id: 'ws_nab_expansion',
       accountId: 'ac_nab',
@@ -52,36 +52,23 @@ export function buildSeed() {
       lastTouched: addDays(today, -3),
       value: 1_200_000,
       meddpicc: meddpicc({
-        metrics: ['confirmed', 'Target 30% infra cost reduction (~$1.2M/yr), DR RTO < 1h.'],
-        economicBuyer: ['unknown', ''],
-        decisionCriteria: ['partial', 'Leaning on TCO + security posture; not yet formalised.'],
-        decisionProcess: ['unknown', ''],
-        paperProcess: ['partial', 'MSA in place; new SOW will need procurement sign-off.'],
-        identifyPain: ['confirmed', 'Legacy platform hits EOL in Q3; audit pressure from regulator.'],
-        champion: ['confirmed', 'Head of Infra is sponsoring and briefs us weekly.'],
-        competition: ['partial', 'Incumbent SI is pitching a lift-and-shift alternative.'],
+        metrics: ['green', 'Target 30% finance-ops cost reduction (~$1.2M/yr), close in 3 days.'],
+        economicBuyer: ['red', ''],
+        decisionCriteria: ['amber', 'Leaning on TCO + integration depth; not yet formalised.'],
+        decisionProcess: ['red', ''],
+        paperProcess: ['amber', 'MSA in place; new SOW will need procurement sign-off.'],
+        identifyPain: ['green', 'Legacy platform hits EOL in Q3; audit pressure from regulator.'],
+        champion: ['green', 'Head of Finance Transformation is sponsoring and briefs us weekly.'],
+        competition: ['amber', 'Incumbent SI is pitching a lift-and-shift alternative.'],
       }),
       notes: [],
     },
     {
-      id: 'ws_nab_dr',
+      id: 'ws_nab_fins',
       accountId: 'ac_nab',
       function: 'coe',
-      title: 'Disaster Recovery Migration',
-      ownerId: 'tm_priya',
-      startDate: addDays(today, -20),
-      endDate: addDays(today, 25),
-      percentComplete: 55,
-      status: 'on_track',
-      lastTouched: addDays(today, -2),
-      value: 480000,
-      notes: [],
-    },
-    {
-      id: 'ws_nab_data',
-      accountId: 'ac_nab',
-      function: 'coe',
-      title: 'Data Platform Consolidation',
+      coeType: 'fins',
+      title: 'Financials Core — Go-Live',
       ownerId: 'tm_tom',
       startDate: addDays(today, -40),
       endDate: addDays(today, 10),
@@ -91,8 +78,23 @@ export function buildSeed() {
       value: 920000,
       notes: [],
     },
+    {
+      id: 'ws_nab_planning',
+      accountId: 'ac_nab',
+      function: 'coe',
+      coeType: 'planning',
+      title: 'Adaptive Planning Rollout',
+      ownerId: 'tm_priya',
+      startDate: addDays(today, -20),
+      endDate: addDays(today, 25),
+      percentComplete: 55,
+      status: 'on_track',
+      lastTouched: addDays(today, -2),
+      value: 480000,
+      notes: [],
+    },
 
-    // ---- Kelsian: a Sales opportunity + COE + CX ----
+    // ---- Kelsian: a Sales opportunity + an Extend COE + a CX rollout ----
     {
       id: 'ws_kel_analytics',
       accountId: 'ac_kelsian',
@@ -106,22 +108,23 @@ export function buildSeed() {
       lastTouched: addDays(today, -6),
       value: 600000,
       meddpicc: meddpicc({
-        metrics: ['partial', 'Rough ROI floated; needs their baseline numbers.'],
-        economicBuyer: ['confirmed', 'CFO is the budget owner and is engaged.'],
-        decisionCriteria: ['unknown', ''],
-        decisionProcess: ['unknown', ''],
-        paperProcess: ['unknown', ''],
-        identifyPain: ['confirmed', 'Manual fleet reporting; no real-time view across operators.'],
-        champion: ['partial', 'Ops manager is warm but lacks budget power.'],
-        competition: ['unknown', ''],
+        metrics: ['amber', 'Rough ROI floated; needs their baseline numbers.'],
+        economicBuyer: ['green', 'CFO is the budget owner and is engaged.'],
+        decisionCriteria: ['red', ''],
+        decisionProcess: ['red', ''],
+        paperProcess: ['red', ''],
+        identifyPain: ['green', 'Manual fleet reporting; no real-time view across operators.'],
+        champion: ['amber', 'Ops manager is warm but lacks budget power.'],
+        competition: ['red', ''],
       }),
       notes: [],
     },
     {
-      id: 'ws_kel_sec',
+      id: 'ws_kel_extend',
       accountId: 'ac_kelsian',
       function: 'coe',
-      title: 'Security Review & SSO',
+      coeType: 'extend',
+      title: 'Extend — Driver Operations App',
       ownerId: 'tm_priya',
       startDate: addDays(today, -5),
       endDate: addDays(today, 30),
@@ -157,17 +160,17 @@ export function buildSeed() {
     },
     {
       id: uid('note'),
-      workstreamId: 'ws_nab_dr',
+      workstreamId: 'ws_nab_planning',
       date: addDays(today, -2),
       author: 'Priya Nair',
-      text: 'Failover test passed in the secondary region. Awaiting NAB infra sign-off on runbook.',
+      text: 'Driver-based model validated in test. Awaiting NAB finance sign-off on planning templates.',
     },
     {
       id: uid('note'),
-      workstreamId: 'ws_nab_data',
+      workstreamId: 'ws_nab_fins',
       date: addDays(today, -13),
       author: 'Tom Reilly',
-      text: 'Schema mapping slipped a week — upstream team reprioritised. Flagged to sponsor.',
+      text: 'Period-close config slipped a week — data owners reprioritised the migration. Flagged to sponsor.',
     },
     {
       id: uid('note'),
@@ -178,10 +181,10 @@ export function buildSeed() {
     },
     {
       id: uid('note'),
-      workstreamId: 'ws_kel_sec',
+      workstreamId: 'ws_kel_extend',
       date: addDays(today, -16),
       author: 'Priya Nair',
-      text: 'Blocked waiting on Kelsian IdP admin access. Escalated to their security lead.',
+      text: 'Blocked waiting on Kelsian tenant admin access for the Extend build. Escalated to their platform lead.',
     },
     {
       id: uid('note'),
@@ -204,18 +207,18 @@ export function buildSeed() {
     },
     {
       id: uid('act'),
-      workstreamId: 'ws_nab_dr',
+      workstreamId: 'ws_nab_planning',
       ownerId: 'tm_priya',
-      text: 'Chase NAB infra for runbook sign-off',
+      text: 'Chase NAB finance for planning template sign-off',
       dueDate: addDays(today, 3),
       status: 'open',
       createdAt: addDays(today, -2),
     },
     {
       id: uid('act'),
-      workstreamId: 'ws_nab_data',
+      workstreamId: 'ws_nab_fins',
       ownerId: 'tm_tom',
-      text: 'Re-baseline schema mapping timeline with upstream team',
+      text: 'Re-baseline financials data-migration timeline with the data owners',
       dueDate: addDays(today, -1),
       status: 'open',
       createdAt: addDays(today, -13),
@@ -231,9 +234,9 @@ export function buildSeed() {
     },
     {
       id: uid('act'),
-      workstreamId: 'ws_kel_sec',
+      workstreamId: 'ws_kel_extend',
       ownerId: 'tm_priya',
-      text: 'Escalate IdP admin access blocker to Kelsian security lead',
+      text: 'Escalate Extend tenant admin access blocker to Kelsian platform lead',
       dueDate: addDays(today, 1),
       status: 'blocked',
       createdAt: addDays(today, -16),

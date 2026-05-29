@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore, useLookups } from '../../store/store.jsx';
 import { StatusBadge, Avatar, FunctionTag } from '../shared/ui.jsx';
 import { MeddpiccScorecard } from '../shared/Meddpicc.jsx';
-import { isSales } from '../../lib/functions.js';
+import { isSales, coeTypeMeta } from '../../lib/functions.js';
 import { STATUS_ORDER, STATUSES, ACTION_STATUSES, formatValue } from '../../lib/status.js';
 import { shortDate, daysAgo, isOverdue, addDays, todayISO } from '../../lib/dates.js';
 
@@ -29,6 +29,9 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
           <div className="flex items-center gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">{account?.name}</p>
             <FunctionTag fn={ws.function} size="sm" />
+            {ws.function === 'coe' && ws.coeType && (
+              <span className="text-[11px] font-semibold text-navy-700/70">{coeTypeMeta(ws.coeType).label}</span>
+            )}
           </div>
           <h2 className="truncate text-base font-semibold text-navy-800">{ws.title}</h2>
         </div>

@@ -33,7 +33,7 @@ export function MeddpiccScorecard({ meddpicc }) {
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-navy-700/60">MEDDPICC</p>
         <span className="text-xs font-semibold" style={{ color: band.color }}>
-          {s.confirmed}/{s.total} confirmed · {s.pct}% · {band.label}
+          {s.green}/{s.total} green · {s.pct}% · {band.label}
         </span>
       </div>
       <div className="overflow-hidden rounded-md border border-navy-100">
