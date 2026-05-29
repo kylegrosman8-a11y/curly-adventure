@@ -1,7 +1,7 @@
 // IndexedDB persistence via the `idb` wrapper.
 // One object store per entity type. Everything survives reloads with no backend.
 import { openDB } from 'idb';
-import { buildSeed } from './seed.js';
+import { buildSeed, SEED_VERSION } from './seed.js';
 
 const DB_NAME = 'account-war-room';
 const DB_VERSION = 1;
@@ -34,12 +34,15 @@ function getDB() {
   return dbPromise;
 }
 
-/** Load the whole dataset into memory. Seeds on first run. */
+/** Load the whole dataset into memory. Seeds (or re-seeds) when the seed
+ * version changes so existing installs pick up model changes cleanly. */
 export async function loadAll() {
   const db = await getDB();
-  const seeded = await db.get('meta', 'seeded');
+  const seededVersion = await db.get('meta', 'seedVersion');
 
-  if (!seeded) {
+  if (seededVersion !== SEED_VERSION) {
+    // Clear any stale records from an older seed before laying down the new one.
+    await clearAll();
     await seedDatabase();
   }
 
@@ -69,6 +72,14 @@ async function seedDatabase() {
   for (const ai of seed.actionItems) tx.objectStore('actionItems').put(ai);
   for (const c of seed.checkins) tx.objectStore('checkins').put(c);
   tx.objectStore('meta').put(new Date().toISOString(), 'seeded');
+  tx.objectStore('meta').put(SEED_VERSION, 'seedVersion');
+  await tx.done;
+}
+
+async function clearAll() {
+  const db = await getDB();
+  const tx = db.transaction(STORES, 'readwrite');
+  for (const name of STORES) tx.objectStore(name).clear();
   await tx.done;
 }
 
@@ -95,9 +106,6 @@ export async function remove(store, id) {
 
 /** Wipe everything and re-seed. Used by the "reset demo data" control. */
 export async function resetDatabase() {
-  const db = await getDB();
-  const tx = db.transaction(STORES, 'readwrite');
-  for (const name of STORES) tx.objectStore(name).clear();
-  await tx.done;
+  await clearAll();
   await seedDatabase();
 }

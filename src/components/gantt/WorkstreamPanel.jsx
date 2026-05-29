@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useStore, useLookups } from '../../store/store.jsx';
-import { StatusBadge, Avatar } from '../shared/ui.jsx';
+import { StatusBadge, Avatar, FunctionTag } from '../shared/ui.jsx';
+import { MeddpiccScorecard } from '../shared/Meddpicc.jsx';
+import { isSales } from '../../lib/functions.js';
 import { STATUS_ORDER, STATUSES, ACTION_STATUSES, formatValue } from '../../lib/status.js';
 import { shortDate, daysAgo, isOverdue, addDays, todayISO } from '../../lib/dates.js';
 
@@ -24,7 +26,10 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
     <aside className="flex h-full w-[420px] flex-shrink-0 flex-col border-l border-navy-100 bg-white">
       <div className="flex items-start justify-between border-b border-navy-100 px-5 py-3" style={{ borderTopColor: account?.color }}>
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">{account?.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-navy-700/60">{account?.name}</p>
+            <FunctionTag fn={ws.function} size="sm" />
+          </div>
           <h2 className="truncate text-base font-semibold text-navy-800">{ws.title}</h2>
         </div>
         <button onClick={onClose} className="rounded p-1 text-navy-700/60 hover:bg-navy-50" aria-label="Close panel">
@@ -92,6 +97,16 @@ export default function WorkstreamPanel({ workstreamId, onClose }) {
             }
           />
         </div>
+
+        {/* MEDDPICC scorecard — sales streams only */}
+        {isSales(ws) && (
+          <div>
+            <MeddpiccScorecard meddpicc={ws.meddpicc} />
+            <p className="mt-1.5 text-[11px] text-navy-700/50">
+              Inline editing, check-in gap prompts and the AI coach land in the next phase.
+            </p>
+          </div>
+        )}
 
         {/* Action items */}
         <div>

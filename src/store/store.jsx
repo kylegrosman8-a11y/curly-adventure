@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useReducer, useCallback 
 import * as db from '../db/db.js';
 import { uid } from '../lib/id.js';
 import { todayISO } from '../lib/dates.js';
+import { normaliseMeddpicc } from '../lib/meddpicc.js';
 
 const StoreContext = createContext(null);
 
@@ -93,6 +94,19 @@ export function StoreProvider({ children }) {
     [state.workstreams, upsert]
   );
 
+  // Update a single MEDDPICC element on a sales workstream. Touches lastTouched
+  // so qualification work counts as activity.
+  const updateMeddpicc = useCallback(
+    (workstreamId, elementKey, patch) => {
+      const ws = state.workstreams.find((w) => w.id === workstreamId);
+      if (!ws) return null;
+      const card = normaliseMeddpicc(ws.meddpicc);
+      const next = { ...card, [elementKey]: { ...card[elementKey], ...patch } };
+      return upsert('workstreams', { ...ws, meddpicc: next, lastTouched: todayISO() });
+    },
+    [state.workstreams, upsert]
+  );
+
   const addNote = useCallback(
     (workstreamId, text, author) => {
       if (!text || !text.trim()) return null;
@@ -161,6 +175,7 @@ export function StoreProvider({ children }) {
       upsertMany,
       removeRecord,
       updateWorkstream,
+      updateMeddpicc,
       addNote,
       addActionItem,
       updateActionItem,
@@ -173,6 +188,7 @@ export function StoreProvider({ children }) {
       upsertMany,
       removeRecord,
       updateWorkstream,
+      updateMeddpicc,
       addNote,
       addActionItem,
       updateActionItem,

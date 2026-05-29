@@ -1,5 +1,20 @@
 import { initials } from '../../store/store.jsx';
 import { STATUSES } from '../../lib/status.js';
+import { functionMeta } from '../../lib/functions.js';
+
+export function FunctionTag({ fn, size = 'md' }) {
+  const meta = functionMeta(fn);
+  const cls = size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]';
+  return (
+    <span
+      className={`inline-flex items-center rounded font-semibold uppercase tracking-wide ${cls}`}
+      style={{ background: `${meta.color}1a`, color: meta.color }}
+      title={meta.full || meta.label}
+    >
+      {meta.short}
+    </span>
+  );
+}
 
 export function Avatar({ name, size = 'md', title }) {
   const cls = size === 'sm' ? 'h-6 w-6 text-[10px]' : size === 'lg' ? 'h-10 w-10 text-sm' : 'h-8 w-8 text-xs';
