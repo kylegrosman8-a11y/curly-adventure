@@ -1,4 +1,33 @@
-# Deploying Account War Room to Vercel
+# Deploying Account War Room
+
+Two supported paths: **GitHub Pages** (no extra account — set up here) and
+**Vercel** (needed if you want live AI via the serverless proxy).
+
+---
+
+## Option A — GitHub Pages (no extra account)
+
+A workflow (`.github/workflows/deploy-pages.yml`) builds and deploys the app to
+GitHub Pages on every push to `main`.
+
+**One-time setup:** in the repo, go to **Settings → Pages → Build and deployment
+→ Source** and choose **GitHub Actions**. (The workflow also tries to enable this
+automatically; if the first run shows a Pages error, set it manually and re-run.)
+
+After that, every push to `main` publishes to:
+
+> **https://kylegrosman8-a11y.github.io/curly-adventure/**
+
+To trigger a deploy without a new commit: **Actions → Deploy to GitHub Pages →
+Run workflow**.
+
+**Note on AI:** GitHub Pages is static-only, so the serverless AI proxy can't run
+there — the app is fully usable with **AI offline**. For live AI, use Vercel
+(Option B) or another host that supports serverless functions.
+
+---
+
+## Option B — Vercel (enables live AI)
 
 The app is a static Vite single-page app (data lives in the browser via
 IndexedDB), so hosting is just serving the built files. Vercel auto-detects the
